@@ -1,0 +1,14 @@
+transformers
+accelerate
+datasets >= 1.8.0
+sentencepiece != 0.1.92
+wandb
+pyyaml
+pynvml
+hydra-core
+evaluate
+nltk
+absl-py
+rouge_score
+seqeval
+py7zr
