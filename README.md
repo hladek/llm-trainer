@@ -14,11 +14,42 @@ A flexible toolkit for preparing datasets and training transformer-based languag
 - **Evaluation & Checkpointing**: Periodic evaluation, logging, and checkpoint saving.
 - **Debugging/Profiling**: Profiling of training steps and layer freezing/unfreezing for transfer learning.
 
+Advanced features:
+
+- **Resume Training**:  
+  `--resume_path` and `--resume_step` to load previous checkpoints.
+- **Mixed Precision**:  
+  `--mixed_precision fp16` or `bf16` for faster training.
+- **Layer Freezing/Unfreezing**:  
+  `--unfreeze layer1,layer2` for transfer learning.
+
 ---
 
 ## Getting Started
 
-### 1. Prepare Your Dataset
+
+### 1. Install dependencies
+
+- [transformers](https://github.com/huggingface/transformers)
+- [datasets](https://github.com/huggingface/datasets)
+- [accelerate](https://github.com/huggingface/accelerate)
+- [torch](https://pytorch.org/)
+- [tqdm](https://github.com/tqdm/tqdm)
+
+Install everything:
+```bash
+pip install transformers datasets accelerate torch tqdm
+```
+
+### 2. Prepare tokenizer
+
+You need a tokenizer available via Hugging Face's `AutoTokenizer`, either from a model name (`bert-base-uncased`, etc.) or from a path to a local directory containing the tokenizer files.
+
+An example script to train a tokenizer is in the tokenizers folder.
+
+---
+
+### 3. Prepare Your Dataset
 
 Use `prepare_dataset.py` to tokenize and chunk your raw text data.
 
@@ -40,15 +71,7 @@ Each line must have a `"text"` field.
 
 ---
 
-### 2. Prepare tokenizer
-
-You need a tokenizer available via Hugging Face's `AutoTokenizer`, either from a model name (`bert-base-uncased`, etc.) or from a path to a local directory containing the tokenizer files.
-
-An example script to train a tokenizer is in the tokenizers folder.
-
----
-
-### 3. Train Your Model
+### 4. Train Your Model
 
 Use `run_accel.py` for distributed training.
 
@@ -81,32 +104,5 @@ For a full list of options, run:
 python run_accel.py --help
 ```
 
----
 
-## Advanced Features
-
-- **Resume Training**:  
-  `--resume_path` and `--resume_step` to load previous checkpoints.
-- **Mixed Precision**:  
-  `--mixed_precision fp16` or `bf16` for faster training.
-- **Layer Freezing/Unfreezing**:  
-  `--unfreeze layer1,layer2` for transfer learning.
-- **WandB Logging**:  
-  `--wandb_project your_project` to enable experiment tracking.
-
----
-
-## Dependencies
-
-- Python 3.7+
-- [transformers](https://github.com/huggingface/transformers)
-- [datasets](https://github.com/huggingface/datasets)
-- [accelerate](https://github.com/huggingface/accelerate)
-- [torch](https://pytorch.org/)
-- [tqdm](https://github.com/tqdm/tqdm)
-
-Install everything:
-```bash
-pip install transformers datasets accelerate torch tqdm
-```
 
