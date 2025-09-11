@@ -8,7 +8,7 @@ A flexible toolkit for preparing datasets and training transformer-based languag
 
 - **Dataset Preparation**: Tokenize, chunk, and save datasets for efficient ML training (`prepare_dataset.py`).
 - **Accelerated Training**: Distributed, mixed precision, and gradient accumulation enabled training (`run_accel.py`).
-- **Custom Schedulers & Optimizers**: Support for Adafactor, AdamW, SGD-SAI, cosine decay, trapezoid LR schedules, etc.
+- **Custom Schedulers & Optimizers**: Support for Adafactor, AdamW, Muon, SGD-SAI, cosine decay, trapezoid LR schedules, etc.
 - **Logging**: Integrated logging (stdout, WandB, JSON logs).
 - **Flexible Model & Data Support**: Easily switch between Masked Language Modeling (MLM) and T5-style training.
 - **Evaluation & Checkpointing**: Periodic evaluation, logging, and checkpoint saving.
@@ -104,5 +104,16 @@ For a full list of options, run:
 python run_accel.py --help
 ```
 
+
+# References
+
+We used these libraries and ideas:
+
+- [Accelerate](https://github.com/huggingface/accelerate) for scaling the training.
+- [Datasets](https://github.com/huggingface/datasets) for data preprocessing.
+- [Nano T5](https://github.com/PiotrNawrot/nanoT5) training a T5 model from scratch.
+- [Moonlight](https://github.com/MoonshotAI/Moonlight) Muon optimizer implementation.
+- [SGD Sai](https://github.com/AnonymousAlethiometer/SGD_SaI/) optimizer
+- [Scaling Laws and Compute-Optimal Training Beyond Fixed Training Durations](https://arxiv.org/abs/2405.18392) trapezoid learning rate scheduler.
 
 

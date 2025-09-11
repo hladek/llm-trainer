@@ -188,7 +188,7 @@ def parse_args():
         type=str,
         default="adamw",
         help="Optimizer type. Possible are adamw (torch) and sgdsai (custom)",
-        choices=["adamw","adamw8","sgdsai","adafactor"],
+        choices=["adamw","adamw8","sgdsai","adafactor","muon"],
     )
     parser.add_argument(
         "--weight_decay",
@@ -300,7 +300,6 @@ def evaluate_model(accelerator,model,eval_dataloader,log_dir,batch_size,step,col
 def save_model(accelerator,model,output_dir,step):
     log_info("Saving model at step " + str(step))
     check_dir = output_dir + "/step_{}".format(step)
-    shutil.copytree(output_dir+ "/model_template",check_dir)
     unwrapped_model = accelerator.unwrap_model(model)
     unwrapped_model.save_pretrained(
         check_dir,
@@ -308,6 +307,28 @@ def save_model(accelerator,model,output_dir,step):
         save_function=accelerator.save,
     )
     accelerator.save_state(output_dir + "/last_state")
+
+def get_muon_optimizer( model, learning_rate=1e-3, weight_decay=0.1):
+    from moonlight import Muon
+    muon_params = [
+        p
+        for name, p in model.named_parameters()
+        if p.ndim >= 2 and "embed" not in name and "head" not in name
+    ]
+    adamw_params = [
+        p
+        for name, p in model.named_parameters()
+        if not (
+            p.ndim >= 2 and "embed" not in name and "head" not in name
+        )
+    ]
+
+    return Muon(
+        lr=learning_rate,
+        wd=weight_decay,
+        muon_params=muon_params,
+        adamw_params=adamw_params,
+    )
 
 def train():
     args = parse_args()
@@ -398,7 +419,9 @@ def train():
  #       init_kwargs={"wandb": {"entity": "my-wandb-team"}}
         )
     #torch.compile(model)
+    #model.gradient_checkpointing_enable()
     # Data Collator
+
 
     data_collator = None
     if args.collator == "mlm":
@@ -442,14 +465,13 @@ def train():
     
 
     log_info(args)
-    if args.debug:
-        log_info("\n".join([k for k,v in model.named_parameters()]))
+    log_info("\n".join([k for k,v in model.named_parameters()]))
     # for one bit lamb see https://github.com/microsoft/DeepSpeedExamples/blob/master/training/bing_bert/deepspeed_train.py#L401
     # Optimizer grouped parameters
     # som
     # Layer norm and bias have to be excluded from weight decay
-    # TODO is it possible to miss layer norm?
-    no_decay = ["bias", "LayerNorm", "layernorm", "layer_norm", "ln"]
+    # This is model depentend, check for any new model !
+    no_decay = ["bias", "LayerNorm", "layernorm", "layer_norm", "ln","attn_norm","mlp_norm"]
 
     optimizer = None
     optimizer_grouped_parameters = [
@@ -464,8 +486,11 @@ def train():
         "requires_grad": True,
       },
     ]
+    assert len(optimizer_grouped_parameters[1]["params"]) > 0, "Norms and bias should be excluded from weight decay"
     if args.optimizer == "adamw":
         optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
+    if args.optimizer == "muon":
+        optimizer = get_muon_optimizer(model,learning_rate=args.learning_rate,weight_decay=args.weight_decay)
     elif args.optimizer == "adamw8":
         import bitsandbytes as bnb
         optimizer = bnb.optim.PagedAdamW8bit(optimizer_grouped_parameters,lr=args.learning_rate,betas=(0.9,0.95))
@@ -618,7 +643,7 @@ def train():
         if  step % args.logging_steps == 0:
             onebatch = batch["input_ids"].shape[0] *  batch["input_ids"].shape[1] 
             num_tokens = counter * accelerator.num_processes * onebatch
-            d = {"train/loss":loss.item(),
+            d = {"train/loss":loss.detach().item(),
                   "train/step":step,
                   "train/grad_l2": grad_l2,
                   "train/tokens": num_tokens
