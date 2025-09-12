@@ -11,6 +11,7 @@ import time
 import math
 import datetime
 import shutil
+from collections import deque
 
 import accelerate
 
@@ -330,6 +331,7 @@ def get_muon_optimizer( model, learning_rate=1e-3, weight_decay=0.1):
         adamw_params=adamw_params,
     )
 
+
 def train():
     args = parse_args()
     d= datetime.datetime.now()
@@ -379,11 +381,11 @@ def train():
     # one batch has sequence_length tokens
     db_max_train_steps = int(max_batches / (args.per_device_batch_size * accelerator.num_processes))
     log_info("Max samples (batches) : {}".format(max_batches))
-    log_info("Max steps from database per device : {}".format(db_max_train_steps))
+    log_info("Max train steps: {}".format(db_max_train_steps))
     max_train_steps = db_max_train_steps
     if args.train_steps is not None:
         max_train_steps = args.train_steps
-    log_info("Max train steps: {}".format(max_train_steps))
+    log_info("Current train steps: {}".format(max_train_steps))
 
     config_path = args.model_config
     if config_path is None:
@@ -598,6 +600,12 @@ def train():
     total_optimize_duration  = 0
     total_step_duration = 0
 
+    load_deque = deque(maxlen=args.logging_steps)
+    forward_deque = deque(maxlen=args.logging_steps)
+    backward_deque = deque(maxlen=args.logging_steps)
+    optimize_deque = deque(maxlen=args.logging_steps)
+    step_deque = deque(maxlen=args.logging_steps)
+
     log_info("Starting training loop")
     start_step = 0
     counter = 1
@@ -677,12 +685,19 @@ def train():
         total_backward_duration  += backward_duration
         total_optimize_duration  += optimize_duration
         total_step_duration += step_duration
-    
+
+        load_deque.append(load_duration)
+        forward_deque.append(forward_duration)
+        backward_deque.append(backward_duration)
+        optimize_deque.append(optimize_duration)
+        step_deque.append(step_duration)
+
         average_load_duration = total_load_duration / counter
         average_forward_duration = total_forward_duration / counter
         average_backward_duration = total_backward_duration / counter 
         average_optimize_duration = total_optimize_duration / counter
         average_step_duration = total_step_duration / counter
+
         counter += 1
         
         if args.debug:
@@ -692,12 +707,17 @@ def train():
             print("rank: {} time of optimization  {}/{}".format(rank,optimize_duration,average_optimize_duration))
             print("rank: {} total time of one step {}/{}".format(rank,step_duration,average_step_duration))
         if  step % args.logging_steps == 0:
+            mean_load_duration = sum(load_deque) / args.logging_steps
+            mean_forward_duration = sum(forward_deque) / args.logging_steps
+            mean_backward_duration = sum(backward_deque) / args.logging_steps
+            mean_optimize_duration = sum(optimize_deque) / args.logging_steps
+            mean_step_duration = sum(step_deque) / args.logging_steps
             accelerator.log({
-               "profile/load_duration":load_duration,
-               "profile/forward_duration":forward_duration,
-               "profile/backward_duration":backward_duration,
-               "profile/optimize_duration":optimize_duration,
-               "profile/step_duration":step_duration,
+               "profile/load_duration":mean_load_duration,
+               "profile/forward_duration":mean_forward_duration,
+               "profile/backward_duration":mean_backward_duration,
+               "profile/optimize_duration":mean_optimize_duration,
+               "profile/step_duration":mean_step_duration,
             })
         # Stop conditions
         if step >= max_train_steps:
